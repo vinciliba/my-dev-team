@@ -3,6 +3,7 @@ import { Logger } from '../utils/logger';
 import * as path from 'path';
 import * as chokidar from 'chokidar';
 import * as fs from 'fs/promises';
+import { Stats } from 'fs'; // Import Stats from 'fs' instead of 'fs/promises'
 
 export interface WatcherConfig {
   ignoreInitial?: boolean;
@@ -42,7 +43,7 @@ export interface WatcherStats {
 export interface FileSystemEvent {
   type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir' | 'ready' | 'error';
   path: string;
-  stats?: fs.Stats;
+  stats?: Stats; // Now using Stats from 'fs'
   error?: Error;
   timestamp: Date;
 }
@@ -410,7 +411,7 @@ export class FileSystemWatcher {
   private handleFileEvent(
     type: FileSystemEvent['type'],
     filePath: string,
-    stats?: fs.Stats,
+    stats?: Stats, // Now using Stats from 'fs'
     error?: Error
   ): void {
     // Update statistics
@@ -427,9 +428,9 @@ export class FileSystemWatcher {
 
     // Apply throttling
     if (this.shouldThrottleEvent(filePath)) {
-      this.logger.debug(`Throttling event for ${filePath}`);
-      return;
-    }
+    this.logger.debug(`Throttling event for ${filePath}`);
+    return;
+  }
 
     // Handle the event
     this.processFileEvent(event);

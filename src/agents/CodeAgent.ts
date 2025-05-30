@@ -1,15 +1,17 @@
+
 import { BaseAgent } from './BaseAgent';
 import { AgentTask, AgentResult, AgentCapability} from '../types/Agents';
 import { CodeSymbol } from '../types/Projects';
 import { OllamaService } from '../services/OllamaService';
 import { FileService } from '../services/FileService';
 import { WorkspaceAnalyzer } from '../context/WorkspaceAnalyzer';
+import { ProjectContext } from '../context/ProjectContext';
 import * as path from 'path';
 
 export class CoderAgent extends BaseAgent {
   private ollamaService: OllamaService;
   private fileService: FileService;
-  private workspaceAnalyzer: WorkspaceAnalyzer;
+  private workspaceAnalyzer: WorkspaceAnalyzer | null = null;
   
   constructor() {
     super(
@@ -40,13 +42,21 @@ export class CoderAgent extends BaseAgent {
 
     this.ollamaService = new OllamaService();
     this.fileService = new FileService();
-    this.workspaceAnalyzer = new WorkspaceAnalyzer();
+    // WorkspaceAnalyzer will be initialized when needed with proper context
+  }
+
+  private getWorkspaceAnalyzer(workspaceRoot: string): WorkspaceAnalyzer {
+    if (!this.workspaceAnalyzer) {
+      const projectContext = new ProjectContext(workspaceRoot);
+      this.workspaceAnalyzer = new WorkspaceAnalyzer(projectContext);
+    }
+    return this.workspaceAnalyzer;
   }
 
   protected validateTask(task: AgentTask): boolean {
-    return ['create', 'modify', 'refactor'].includes(task.type) && 
-           task.description && 
-           task.description.length > 5;
+    const isValidType = ['create', 'modify', 'refactor'].includes(task.type);
+    const hasDescription = !!task.description && task.description.length > 5;
+    return isValidType && hasDescription;
   }
 
   protected estimateTaskTime(task: AgentTask): number {
@@ -79,7 +89,8 @@ export class CoderAgent extends BaseAgent {
     this.log(`Creating ${featureType}: ${description}`);
 
     // Analyze existing codebase for context
-    const projectContext = await this.workspaceAnalyzer.analyzeWorkspace(workspaceRoot);
+    const workspaceAnalyzer = this.getWorkspaceAnalyzer(workspaceRoot);
+    const projectContext = await workspaceAnalyzer.analyzeWorkspace(workspaceRoot);
     const existingPatterns = await this.analyzeCodePatterns(workspaceRoot);
 
     // Generate code based on description and context
@@ -477,10 +488,39 @@ Ensure the refactored code maintains the same functionality while being cleaner 
         });
       }
     } catch (error) {
-      this.log('Error analyzing code patterns:', error);
+      this.log(`Error analyzing code patterns: ${error}`);
     }
     
     return patterns;
+  }
+
+  private async updateDependencies(workspaceRoot: string, dependencies: string[]): Promise<void> {
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    
+    if (await this.fileService.fileExists(packageJsonPath)) {
+      try {
+        const packageContent = await this.fileService.readFile(packageJsonPath);
+        const packageJson = JSON.parse(packageContent);
+        
+        // Add new dependencies
+        if (!packageJson.dependencies) packageJson.dependencies = {};
+        
+        for (const dep of dependencies) {
+          if (!packageJson.dependencies[dep]) {
+            packageJson.dependencies[dep] = 'latest'; // In production, use specific versions
+          }
+        }
+        
+        await this.fileService.writeFile(
+          packageJsonPath, 
+          JSON.stringify(packageJson, null, 2)
+        );
+        
+        this.log(`Updated package.json with ${dependencies.length} new dependencies`);
+      } catch (error) {
+        this.log(`Error updating package.json: ${error}`);
+      }
+    }
   }
 
   private getPatternDescription(pattern: string): string {
@@ -519,34 +559,6 @@ Ensure the refactored code maintains the same functionality while being cleaner 
     return testTasks;
   }
 
-  private async updateDependencies(workspaceRoot: string, dependencies: string[]): Promise<void> {
-    const packageJsonPath = path.join(workspaceRoot, 'package.json');
-    
-    if (await this.fileService.fileExists(packageJsonPath)) {
-      try {
-        const packageContent = await this.fileService.readFile(packageJsonPath);
-        const packageJson = JSON.parse(packageContent);
-        
-        // Add new dependencies
-        if (!packageJson.dependencies) packageJson.dependencies = {};
-        
-        for (const dep of dependencies) {
-          if (!packageJson.dependencies[dep]) {
-            packageJson.dependencies[dep] = 'latest'; // In production, use specific versions
-          }
-        }
-        
-        await this.fileService.writeFile(
-          packageJsonPath, 
-          JSON.stringify(packageJson, null, 2)
-        );
-        
-        this.log(`Updated package.json with ${dependencies.length} new dependencies`);
-      } catch (error) {
-        this.log('Error updating package.json:', error);
-      }
-    }
-  }
 
   private detectLanguage(filePath: string): string {
     const ext = path.extname(filePath).toLowerCase();

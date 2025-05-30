@@ -5,6 +5,8 @@ import { GitService } from '../services/GitService';
 import { Logger } from '../utils/logger';
 import * as path from 'path';
 import * as chokidar from 'chokidar';
+import * as fs from 'fs/promises';
+
 
 export class ProjectContext {
   private workspaceRoot: string;
@@ -26,7 +28,11 @@ export class ProjectContext {
   constructor(workspaceRoot: string) {
     this.workspaceRoot = workspaceRoot;
     this.fileService = new FileService();
-    this.gitService = new GitService();
+      // Provide a basic GitService config
+    this.gitService = new GitService({
+     repositoryPath: this.workspaceRoot
+    });
+  
     this.logger = new Logger('ProjectContext');
     
     this.logger.info(`Initializing project context for: ${workspaceRoot}`);
@@ -247,7 +253,7 @@ export class ProjectContext {
           }
         });
       } catch (error) {
-        this.logger.debug(`Error searching in file ${file}:`, error);
+        this.logger.debug('Error message:', error as any);
       }
     }
     
@@ -295,7 +301,7 @@ export class ProjectContext {
       this.structure = await this.scanProjectStructure();
       this.logger.info(`Project structure analyzed: ${this.structure.type} project with ${this.structure.language.join(', ')}`);
     } catch (error) {
-      this.logger.error('Failed to analyze project structure:', error);
+      this.logger.error('Failed to analyze project structure:', error as any);
       this.structure = this.createEmptyStructure();
     }
   }
@@ -321,7 +327,7 @@ export class ProjectContext {
   }
 
   private async scanDirectory(dirPath: string, relativePath: string = ''): Promise<DirectoryNode> {
-    const stats = await this.fileService.getStats(dirPath);
+    const stats = await fs.stat(dirPath);
     const name = path.basename(dirPath);
     
     const node: DirectoryNode = {
@@ -341,24 +347,24 @@ export class ProjectContext {
         
         const itemPath = path.join(dirPath, item);
         const itemRelativePath = path.join(relativePath, item);
-        const itemStats = await this.fileService.getStats(itemPath);
+        const itemStats = await fs.stat(itemPath);
         
-        if (itemStats.isDirectory()) {
-          const childNode = await this.scanDirectory(itemPath, itemRelativePath);
-          node.children.push(childNode);
-        } else {
-          node.children.push({
-            name: item,
-            type: 'file',
-            path: itemRelativePath,
-            size: itemStats.size,
-            modified: itemStats.mtime,
-            language: this.detectFileLanguage(item)
-          });
-        }
+      // 2. Around LINE 348 - This should be the EXACT code:
+      if (itemStats.isDirectory()) {  // ← This MUST be isDirectory() with parentheses
+        const childNode = await this.scanDirectory(itemPath, itemRelativePath);
+        node.children.push(childNode);
+      } else {
+        node.children.push({
+          name: item,
+          type: 'file',
+          path: itemRelativePath,
+          size: itemStats.size,      // ← LINE 356: This should work with fs.Stats
+          modified: itemStats.mtime,  // ← LINE 357: This should work with fs.Stats
+          language: this.detectFileLanguage(item)
+        });
       }
-    } catch (error) {
-      this.logger.debug(`Error scanning directory ${dirPath}:`, error);
+    }} catch (error) {
+      this.logger.debug(`Error scanning directory ${dirPath}:`, error as any);
     }
     
     return node;
@@ -494,7 +500,7 @@ export class ProjectContext {
         };
       }
     } catch (error) {
-      this.logger.debug('Error loading package.json:', error);
+       this.logger.debug('Error message:', error as any);
     }
     
     return { dependencies: {}, devDependencies: {} };
@@ -502,54 +508,61 @@ export class ProjectContext {
 
   private async updateGitState(): Promise<void> {
     try {
-      this.gitState = await this.gitService.getGitState(this.workspaceRoot);
+      this.gitState = await this.gitService.getGitState() as any;
     } catch (error) {
-      this.logger.debug('No git repository or git error:', error);
+      this.logger.debug('No git repository or git error:', error as any);
       this.gitState = null;
     }
   }
 
-  private async performCodeAnalysis(): Promise<void> {
-    if (!this.structure) return;
-    
-    const sourceFiles = this.getAllSourceFiles();
-    let totalLines = 0;
-    const languages: Record<string, number> = {};
-    const exportedFunctions: any[] = [];
-    
-    // Analyze a sample of files
-    for (const file of sourceFiles.slice(0, 20)) {
-      try {
-        const fullPath = path.join(this.workspaceRoot, file);
-        const content = await this.fileService.readFile(fullPath);
-        const lines = content.split('\n').length;
-        totalLines += lines;
-        
-        const language = this.detectFileLanguage(file);
-        if (language) {
-          languages[language] = (languages[language] || 0) + lines;
-        }
-        
-        // Extract exports (simplified)
-        const exports = this.extractExports(content, file);
-        exportedFunctions.push(...exports);
-      } catch (error) {
-        this.logger.debug(`Error analyzing file ${file}:`, error);
+
+private async performCodeAnalysis(): Promise<void> {
+  if (!this.structure) return;
+  
+  const sourceFiles = this.getAllSourceFiles();
+  let totalLines = 0;
+  const languages: Record<string, number> = {};
+  const exportedFunctions: any[] = [];
+  
+  // Analyze a sample of files
+  for (const file of sourceFiles.slice(0, 20)) {
+    try {
+      const fullPath = path.join(this.workspaceRoot, file);
+      
+      // OPTIONAL: Replace this line for consistency
+      // OLD:
+      // const content = await this.fileService.readFile(fullPath);
+      // NEW:
+      const content = await fs.readFile(fullPath, 'utf8');
+      
+      const lines = content.split('\n').length;
+      totalLines += lines;
+      
+      const language = this.detectFileLanguage(file);
+      if (language) {
+        languages[language] = (languages[language] || 0) + lines;
       }
+      
+      // Extract exports (simplified)
+      const exports = this.extractExports(content, file);
+      exportedFunctions.push(...exports);
+    } catch (error) {
+      this.logger.debug('Some error:', error as any);
     }
-    
-    this.analysis = {
-      totalFiles: sourceFiles.length,
-      totalLines,
-      languages,
-      complexity: totalLines > 10000 ? 'high' : totalLines > 5000 ? 'medium' : 'low',
-      dependencies: Object.keys(this.structure.dependencies),
-      entryPoints: this.findEntryPoints(),
-      exportedFunctions
-    };
-    
-    this.lastAnalysis = new Date();
   }
+  
+  this.analysis = {
+    totalFiles: sourceFiles.length,
+    totalLines,
+    languages,
+    complexity: totalLines > 10000 ? 'high' : totalLines > 5000 ? 'medium' : 'low',
+    dependencies: Object.keys(this.structure.dependencies),
+    entryPoints: this.findEntryPoints(),
+    exportedFunctions
+  };
+  
+  this.lastAnalysis = new Date();
+}
 
   private getAllSourceFiles(): string[] {
     if (!this.structure) return [];

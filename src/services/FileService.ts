@@ -8,6 +8,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { Logger } from '../utils/logger';
 import { EventEmitter } from 'events';
+// Add this line:
+import { glob } from 'glob'; // or install @types/glob
 
 export interface FileOperationOptions {
   createDirectories?: boolean;
@@ -20,7 +22,7 @@ export interface FileOperationOptions {
   recursive?: boolean;
 }
 
-export interface FileStats {
+export interface FileStats {npm run cm
   size: number;
   isFile: boolean;
   isDirectory: boolean;
@@ -193,6 +195,55 @@ export class FileService extends EventEmitter {
     
     this.logger.info('File Service initialized');
   }
+
+  
+/**
+ * Ensures that a directory exists, creating it if necessary
+ */
+async ensureDirectoryExists(dirPath: string): Promise<void> {
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+  } catch (error) {
+    // If directory already exists, that's fine - recursive: true handles this
+    // Only throw if it's a different error
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code !== 'EEXIST') {
+      this.logger.error(`Failed to ensure directory exists: ${dirPath}`, error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * Finds files matching a pattern
+ */
+async findFiles(pattern: string, baseDir: string = process.cwd()): Promise<string[]> {
+  try {
+    // Try to use glob if available, fallback to manual search
+    try {
+      const glob = require('glob');
+      return new Promise((resolve, reject) => {
+        glob(pattern, { cwd: baseDir }, (err: Error | null, files: string[]) => {
+          if (err) {
+            this.logger.error(`Glob pattern search failed: ${pattern}`, err);
+            reject(err);
+          } else {
+            const resolvedFiles = files.map(file => path.resolve(baseDir, file));
+            this.logger.debug(`Found ${resolvedFiles.length} files matching pattern: ${pattern}`);
+            resolve(resolvedFiles);
+          }
+        });
+      });
+    } catch (globError) {
+      // Fallback to manual file search if glob is not available
+      this.logger.debug('Glob not available, using manual search');
+      return await this.searchFiles(baseDir, { pattern: new RegExp(pattern.replace(/\*/g, '.*')) });
+    }
+  } catch (error) {
+    this.logger.error(`Failed to find files with pattern ${pattern}:`, error);
+    throw error;
+  }
+}
 
   /**
    * Read file content

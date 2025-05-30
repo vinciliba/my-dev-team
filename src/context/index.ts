@@ -1,62 +1,58 @@
-/**
- * Context Module Index
- * Central export point for all context-related classes and utilities
- */
-
-// Core Context Classes
+// Import all context classes
 export { ProjectContext } from './ProjectContext';
 export { WorkspaceAnalyzer } from './WorkspaceAnalyzer';
-export { FileSystemWatcher } from './FileSystemWatcher'; 
 
-// Types
-export type {
-  ProjectStructure,
-  DirectoryNode,
-  GitState,
-  FileChange,
-  CodeAnalysis
-} from '../types/Projects';
+// Import the classes for internal use  
+import { ProjectContext } from './ProjectContext';
+import { WorkspaceAnalyzer } from './WorkspaceAnalyzer';
 
-export type {
-  AnalysisResult,
-  AnalysisSummary,
-  CodeMetrics,
-  SecurityIssue,
-  PerformanceIssue,
-  QualityIssue,
-  DependencyIssue,
-  ArchitectureInsight,
-  TechnicalDebt,
-  AnalysisConfig,
-  AnalysisProgress,
-  SeverityLevel,
-  ProjectHealth,
-  IssueType
-} from '../types/Analysis';
+// Type definitions
+export interface ContextConfig {
+  workspaceRoot: string;
+  enableWatcher?: boolean;
+  analysisConfig?: AnalysisConfig;
+}
 
-/**
- * Context Factory for creating context instances
- */
-export class ContextFactory {
-  /**
-   * Create a ProjectContext instance
-   */
-  static createProjectContext(workspaceRoot: string): ProjectContext {
-    return new ProjectContext(workspaceRoot);
+export interface AnalysisConfig {
+  includeDependencies?: boolean;
+  includeGitInfo?: boolean;
+  maxDepth?: number;
+  excludePatterns?: string[];
+}
+
+// Factory functions that work with actual constructors
+export function createProjectContext(workspaceRoot: string): ProjectContext {
+  return new ProjectContext(workspaceRoot);
+}
+
+// Fix the undefined ProjectContext error by making it required
+export function createWorkspaceAnalyzer(projectContext: ProjectContext): WorkspaceAnalyzer {
+  return new WorkspaceAnalyzer(projectContext);
+}
+
+// Context manager class
+export class ContextManager {
+  private projectContext: ProjectContext;
+  private workspaceAnalyzer: WorkspaceAnalyzer;
+
+  constructor(config: ContextConfig) {
+    this.projectContext = new ProjectContext(config.workspaceRoot);
+    this.workspaceAnalyzer = new WorkspaceAnalyzer(this.projectContext);
   }
 
-  /**
-   * Create a WorkspaceAnalyzer instance
-   */
-  static createWorkspaceAnalyzer(projectContext: ProjectContext): WorkspaceAnalyzer {
-    return new WorkspaceAnalyzer(projectContext);
+  async initialize(): Promise<void> {
+    await this.projectContext.initialize();
   }
 
-  /**
-   * Create FileSystemWatcher when implemented
-   */
-  static createFileSystemWatcher(workspaceRoot: string): any {
-    // TODO: Implement FileSystemWatcher
-    throw new Error('FileSystemWatcher not yet implemented');
+  getProjectContext(): ProjectContext {
+    return this.projectContext;
+  }
+
+  getWorkspaceAnalyzer(): WorkspaceAnalyzer {
+    return this.workspaceAnalyzer;
+  }
+
+  async shutdown(): Promise<void> {
+    await this.projectContext.dispose();
   }
 }

@@ -1,123 +1,106 @@
-import { v4 as uuidv4 } from 'uuid';
-import { AgentTask, AgentResult, AgentStatus, AgentCapability, AgentType } from '../types/Agents';
-import { Logger } from '../utils/logger';
+
+import { AgentCapability } from '../types/Agents';
 
 export abstract class BaseAgent {
-  protected readonly id: string;
-  protected status: AgentStatus['status'] = 'idle';
-  protected currentTask?: AgentTask;
-  protected logger: Logger;
+  public name: string;
+  public agentType: string;
+  public description: string;
+  public capabilities: AgentCapability[];
+  protected isActive: boolean = false;
   
   constructor(
-    public readonly name: string,
-    public readonly type: AgentType,
-    public readonly description: string,
-    public readonly capabilities: AgentCapability[]
+    name: string,
+    agentType: string, 
+    description: string,
+    capabilities: AgentCapability[] = []
   ) {
-    this.id = uuidv4();
-    this.logger = new Logger(`Agent:${name}`);
+    this.name = name;
+    this.agentType = agentType;
+    this.description = description;
+    this.capabilities = capabilities;
+    this.isActive = true;
   }
 
-  abstract executeTask(task: AgentTask): Promise<AgentResult>;
-  
-  protected abstract validateTask(task: AgentTask): boolean;
-  
-  protected abstract estimateTaskTime(task: AgentTask): number;
+  // Abstract method that all agents must implement
+  abstract executeTask(task: any): Promise<any>;
 
-  async processTask(task: AgentTask): Promise<AgentResult> {
-    this.logger.info(`Starting task: ${task.description}`);
-    
-    if (!this.validateTask(task)) {
-      return this.createErrorResult(task, 'Invalid task parameters');
-    }
-
-    this.status = 'busy';
-    this.currentTask = task;
-    
-    const startTime = Date.now();
-    
-    try {
-      const result = await this.executeTask(task);
-      const executionTime = Date.now() - startTime;
-      
-      this.logger.info(`Completed task in ${executionTime}ms`);
-      this.status = 'idle';
-      this.currentTask = undefined;
-      
-      return {
-        ...result,
-        executionTime,
-        logs: [...result.logs, `Task completed in ${executionTime}ms`]
-      };
-      
-    } catch (error) {
-      this.logger.error(`Task failed: ${error.message}`, error);
-      this.status = 'error';
-      
-      return this.createErrorResult(task, error.message, Date.now() - startTime);
-    }
+  // Common methods for all agents
+  public getName(): string {
+    return this.name;
   }
 
-  getStatus(): AgentStatus {
-    return {
-      id: this.id,
-      name: this.name,
-      status: this.status,
-      currentTask: this.currentTask,
-      capabilities: this.capabilities,
-      performance: {
-        tasksCompleted: 0, // TODO: Implement performance tracking
-        successRate: 0,
-        averageExecutionTime: 0
-      }
-    };
+  public getDescription(): string {
+    return this.description;
   }
 
-  canHandleTask(task: AgentTask): boolean {
-    return this.capabilities.some(cap => 
-      cap.inputTypes.includes(task.type)
-    );
+  public getType(): string {
+    return this.agentType;
   }
 
+  public getCapabilities(): AgentCapability[] {
+    return this.capabilities;
+  }
+
+  public isAgentActive(): boolean {
+    return this.isActive;
+  }
+
+  public activate(): void {
+    this.isActive = true;
+  }
+
+  public deactivate(): void {
+    this.isActive = false;
+  }
+
+  protected log(message: string): void {
+    console.log(`[${this.name}] ${message}`);
+  }
+
+  protected logError(error: string | Error): void {
+    const errorMessage = error instanceof Error ? error.message : error;
+    console.error(`[${this.name}] ERROR: ${errorMessage}`);
+  }
+
+  // Common validation method
+  protected validateTask(task: any): boolean {
+    return task && (task.description || task.title);
+  }
+
+  // Helper method to create success results
   protected createSuccessResult(
-    task: AgentTask, 
-    output: string, 
-    filesCreated: string[] = [],
-    filesModified: string[] = [],
-    nextTasks: AgentTask[] = []
-  ): AgentResult {
+    task: any,
+    message: string,
+    files: string[] = [],
+    changes: string[] = [],
+    nextTasks: any[] = []
+  ): any {
     return {
-      taskId: task.id,
       success: true,
-      output,
-      filesCreated,
-      filesModified,
-      filesDeleted: [],
-      executionTime: 0, // Will be set by processTask
+      message,
+      files,
+      changes,
       nextTasks,
-      logs: []
+      agent: this.name,
+      timestamp: new Date(),
+      task: task
     };
   }
 
-  protected createErrorResult(
-    task: AgentTask, 
-    error: string, 
-    executionTime: number = 0
-  ): AgentResult {
+  // Helper method to create error results
+  protected createErrorResult(task: any, error: string | Error): any {
+    const errorMessage = error instanceof Error ? error.message : error;
     return {
-      taskId: task.id,
       success: false,
-      output: '',
-      filesCreated: [],
-      filesModified: [],
-      filesDeleted: [],
-      executionTime,
-      error,
-      logs: [`Error: ${error}`]
+      error: errorMessage,
+      agent: this.name,
+      timestamp: new Date(),
+      task: task
     };
   }
 
-  protected log(message: string, data?: any): void {
-    this.logger.info(message, data);
+  // Estimate task execution time (override in subclasses)
+  protected estimateTaskTime(task: any): number {
+    return 5000; // Default 5 seconds
   }
 }

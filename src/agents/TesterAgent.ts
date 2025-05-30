@@ -7,13 +7,17 @@ import { WorkspaceAnalyzer } from '../context/WorkspaceAnalyzer';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { TestSummary } from '../types/Task';
+import { ProjectContext } from '../context/ProjectContext';
 
 const execAsync = promisify(exec);
+
 
 export class TesterAgent extends BaseAgent {
   private ollamaService: OllamaService;
   private fileService: FileService;
-  private workspaceAnalyzer: WorkspaceAnalyzer;
+  private workspaceAnalyzer: WorkspaceAnalyzer | null = null;
+
 
   constructor() {
     super(
@@ -44,7 +48,6 @@ export class TesterAgent extends BaseAgent {
 
     this.ollamaService = new OllamaService();
     this.fileService = new FileService();
-    this.workspaceAnalyzer = new WorkspaceAnalyzer();
   }
 
   protected validateTask(task: AgentTask): boolean {
@@ -74,6 +77,14 @@ export class TesterAgent extends BaseAgent {
         throw new Error(`Unsupported task type: ${task.type}`);
     }
   }
+
+   private getWorkspaceAnalyzer(workspaceRoot: string): WorkspaceAnalyzer {
+      if (!this.workspaceAnalyzer) {
+        const projectContext = new ProjectContext(workspaceRoot);
+        this.workspaceAnalyzer = new WorkspaceAnalyzer(projectContext);
+      }
+      return this.workspaceAnalyzer;
+    }
 
   private async generateTests(task: AgentTask): Promise<AgentResult> {
     const { description, parameters } = task;
@@ -151,8 +162,8 @@ export class TesterAgent extends BaseAgent {
       );
 
     } catch (error) {
-      this.log(`Test execution failed: ${error.message}`);
-      return this.createErrorResult(task, `Test execution failed: ${error.message}`);
+      this.log(`Test execution failed:`,);
+      return this.createErrorResult(task, `Test execution failed:`);
     }
   }
 
@@ -193,7 +204,7 @@ export class TesterAgent extends BaseAgent {
       );
 
     } catch (error) {
-      return this.createErrorResult(task, `Analysis failed: ${error.message}`);
+      return this.createErrorResult(task, `Analysis failed:`);
     }
   }
 
@@ -307,7 +318,7 @@ export class TesterAgent extends BaseAgent {
         if (dependencies.pytest) return 'pytest';
         if (dependencies.unittest) return 'unittest';
       } catch (error) {
-        this.log('Error reading package.json:', error);
+        this.log('Error reading package.json:');
       }
     }
 
@@ -498,8 +509,8 @@ Generate production-ready, comprehensive tests that follow ${framework} best pra
       return this.parseTestResults(stdout, framework);
     } catch (error) {
       // Even if tests fail, we might get useful output
-      if (error.stdout) {
-        return this.parseTestResults(error.stdout, framework);
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        return this.parseTestResults((error as any).stdout || '', framework);
       }
       throw error;
     }
@@ -516,68 +527,106 @@ Generate production-ready, comprehensive tests that follow ${framework} best pra
           return this.parseGenericResults(output);
       }
     } catch (error) {
-      this.log('Error parsing test results:', error);
+      this.log('Error parsing test results:');
       return this.createDefaultTestResults();
     }
   }
 
-  private parseJestResults(output: string): TestResults {
-    try {
-      const jestResult = JSON.parse(output);
-      return {
-        total: jestResult.numTotalTests || 0,
-        passed: jestResult.numPassedTests || 0,
-        failed: jestResult.numFailedTests || 0,
-        coverage: jestResult.coverageMap ? this.calculateJestCoverage(jestResult.coverageMap) : 0,
-        files: jestResult.testResults?.map((result: any) => ({
-          file: result.name,
-          tests: result.numTotalTests,
-          passed: result.numPassingTests,
-          failed: result.numFailingTests,
-          coverage: 0, // Would need detailed analysis
-          duration: result.perfStats.end - result.perfStats.start
-        })) || [],
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return this.createDefaultTestResults();
-    }
-  }
-
-  private parseMochaResults(output: string): TestResults {
-    // Simplified Mocha parsing
-    try {
-      const mochaResult = JSON.parse(output);
-      return {
-        total: mochaResult.stats.tests || 0,
-        passed: mochaResult.stats.passes || 0,
-        failed: mochaResult.stats.failures || 0,
-        coverage: 0, // Mocha doesn't include coverage by default
-        files: [],
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return this.createDefaultTestResults();
-    }
-  }
-
-  private parseGenericResults(output: string): TestResults {
-    // Fallback parser for any framework
-    const passedMatch = output.match(/(\d+) passing/);
-    const failedMatch = output.match(/(\d+) failing/);
-    
-    const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
-    const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+private parseJestResults(output: string): TestResults {
+  try {
+    const jestResult = JSON.parse(output);
+    const passed = jestResult.numPassedTests || 0;
+    const failed = jestResult.numFailedTests || 0;
+    const total = jestResult.numTotalTests || 0;
     
     return {
-      total: passed + failed,
+      total,
       passed,
       failed,
-      coverage: 0,
-      files: [],
-      timestamp: new Date()
+      coverage: jestResult.coverageMap ? this.calculateJestCoverage(jestResult.coverageMap) : 0,
+      files: jestResult.testResults?.map((result: any) => ({
+        file: result.name,
+        tests: result.numTotalTests,
+        passed: result.numPassingTests,
+        failed: result.numFailingTests,
+        coverage: 0,
+        duration: result.perfStats.end - result.perfStats.start
+      })) || [],
+      timestamp: new Date(),
+      duration: jestResult.perfStats?.end - jestResult.perfStats?.start || 0,
+      summary: {
+        message: `${passed} passed, ${failed} failed`,
+        status: failed > 0 ? 'failed' : 'passed'
+      } as any  // Use 'any' instead of TestSummary
     };
+  } catch (error) {
+    return this.createDefaultTestResults();
   }
+}
+
+private parseMochaResults(output: string): TestResults {
+  try {
+    const mochaResult = JSON.parse(output);
+    const total = mochaResult.stats.tests || 0;
+    const passed = mochaResult.stats.passes || 0;
+    const failed = mochaResult.stats.failures || 0;
+    
+    return {
+      total,
+      passed,
+      failed,
+      coverage: 0, // Mocha doesn't include coverage by default
+      files: [],
+      timestamp: new Date(),
+      duration: mochaResult.stats.duration || 0,  // Add this line
+      summary: {
+        message: `${passed} passed, ${failed} failed`,
+        status: failed > 0 ? 'failed' : 'passed'
+      } as any  // Use 'any' instead of TestSummary
+    };
+  } catch (error) {
+    return this.createDefaultTestResults();
+  }
+}
+
+private parseGenericResults(output: string): TestResults {
+  const passedMatch = output.match(/(\d+) passing/);
+  const failedMatch = output.match(/(\d+) failing/);
+  
+  const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+  const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+  const total = passed + failed;
+  
+  return {
+    total,
+    passed,
+    failed,
+    coverage: 0,
+    files: [],
+    timestamp: new Date(),
+    duration: 0,                    // Add this line
+    summary: {
+      message: `${passed} passed, ${failed} failed`,
+      status: failed > 0 ? 'failed' : 'passed'
+    } as any  // Use 'any' instead of TestSummary
+  };
+}
+
+private createDefaultTestResults(): TestResults {
+  return {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    coverage: 0,
+    files: [],
+    timestamp: new Date(),
+    duration: 0,                    // Add this line
+   summary: {
+      message: 'No tests executed',
+      status: 'passed'
+    } as any  // Use 'any' instead of TestSummary
+  };
+}
 
   private calculateJestCoverage(coverageMap: any): number {
     if (!coverageMap) return 0;
@@ -613,30 +662,30 @@ Generate production-ready, comprehensive tests that follow ${framework} best pra
 
   private async analyzeTestResults(results: TestResults, coverage: CoverageReport): Promise<TestAnalysis> {
     const aiPrompt = `
-Analyze these test results and provide actionable recommendations:
+  Analyze these test results and provide actionable recommendations:
 
-TEST RESULTS:
-- Total Tests: ${results.total}
-- Passed: ${results.passed}
-- Failed: ${results.failed}
-- Success Rate: ${((results.passed / results.total) * 100).toFixed(1)}%
+  TEST RESULTS:
+  - Total Tests: ${results.total}
+  - Passed: ${results.passed}
+  - Failed: ${results.failed}
+  - Success Rate: ${((results.passed / results.total) * 100).toFixed(1)}%
 
-COVERAGE:
-- Overall: ${coverage.overallCoverage}%
-- Lines: ${coverage.lineCoverage}%
-- Branches: ${coverage.branchCoverage}%
-- Functions: ${coverage.functionCoverage}%
+  COVERAGE:
+  - Overall: ${coverage.overallCoverage}%
+  - Lines: ${coverage.lineCoverage}%
+  - Branches: ${coverage.branchCoverage}%
+  - Functions: ${coverage.functionCoverage}%
 
-Provide analysis in this format:
-{
-  "overallHealth": "excellent|good|fair|poor",
-  "criticalIssues": ["list of critical issues"],
-  "recommendations": ["list of specific recommendations"],
-  "priority": "high|medium|low"
-}
+  Provide analysis in this format:
+  {
+    "overallHealth": "excellent|good|fair|poor",
+    "criticalIssues": ["list of critical issues"],
+    "recommendations": ["list of specific recommendations"],
+    "priority": "high|medium|low"
+  }
 
-Focus on actionable improvements for test quality and coverage.
-`;
+  Focus on actionable improvements for test quality and coverage.
+  `;
 
     try {
       const aiResponse = await this.ollamaService.generateCode(aiPrompt);
@@ -649,7 +698,7 @@ Focus on actionable improvements for test quality and coverage.
         priority: analysis.priority || 'medium'
       };
     } catch (error) {
-      this.log('Error analyzing test results:', error);
+      this.log(`Error analyzing test results: ${error}`);
       return this.createDefaultAnalysis(results, coverage);
     }
   }
@@ -821,16 +870,6 @@ ${results.files.map(file => `
     return multipliers[testType] || 1;
   }
 
-  private createDefaultTestResults(): TestResults {
-    return {
-      total: 0,
-      passed: 0,
-      failed: 0,
-      coverage: 0,
-      files: [],
-      timestamp: new Date()
-    };
-  }
 
   private createTestGenerationSummary(results: TestGenerationResult[]): string {
     const totalTests = results.reduce((sum, r) => sum + r.testsGenerated, 0);

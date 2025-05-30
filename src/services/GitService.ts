@@ -36,7 +36,8 @@ export interface GitState {
   branches: GitBranch[];
   tags: GitTag[];
   stashes: GitStash[];
-  status: GitFileStatus[];
+  fileStatuses: GitFileStatus[];  // Renamed from 'status' to 'fileStatuses'
+  repositoryStatus?: 'clean' | 'modified' | 'staged' | 'conflict'; // Add this if you need overall status
 }
 
 export interface GitCommit {

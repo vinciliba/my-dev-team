@@ -1,11 +1,39 @@
+// Import all agent classes
 export { BaseAgent } from './BaseAgent';
-export { ArchitectAgent } from './ArchictAgent';
+export { ArchitectAgent } from './ArchitectAgent';
 export { CoderAgent } from './CodeAgent';
 export { TesterAgent } from './TesterAgent';
 
-// Agent factory for easy instantiation
+// Import the classes for internal use
+import { BaseAgent } from './BaseAgent';
+import { ArchitectAgent } from './ArchitectAgent';
+import { CoderAgent } from './CodeAgent';
+import { TesterAgent } from './TesterAgent';
+
+// Agent type guards using instanceof
+export function isArchitectAgent(agent: BaseAgent): agent is ArchitectAgent {
+  return agent instanceof ArchitectAgent;
+}
+
+export function isCoderAgent(agent: BaseAgent): agent is CoderAgent {
+  return agent instanceof CoderAgent;
+}
+
+export function isTesterAgent(agent: BaseAgent): agent is TesterAgent {
+  return agent instanceof TesterAgent;
+}
+
+// Factory class for creating agents
 export class AgentFactory {
-  static createAgent(type: 'architect' | 'coder' | 'tester') {
+  static createAllAgents() {
+    return {
+      architect: new ArchitectAgent(),
+      coder: new CoderAgent(),
+      tester: new TesterAgent()
+    };
+  }
+
+  static createAgent(type: 'architect' | 'coder' | 'tester'): BaseAgent {
     switch (type) {
       case 'architect':
         return new ArchitectAgent();
@@ -17,25 +45,4 @@ export class AgentFactory {
         throw new Error(`Unknown agent type: ${type}`);
     }
   }
-
-  static createAllAgents() {
-    return {
-      architect: new ArchitectAgent(),
-      coder: new CoderAgent(),
-      tester: new TesterAgent()
-    };
-  }
 }
-
-// Agent type guards
-export const isArchitectAgent = (agent: BaseAgent): agent is ArchitectAgent => {
-  return agent.type === 'architect';
-};
-
-export const isCoderAgent = (agent: BaseAgent): agent is CoderAgent => {
-  return agent.type === 'coder';
-};
-
-export const isTesterAgent = (agent: BaseAgent): agent is TesterAgent => {
-  return agent.type === 'tester';
-};

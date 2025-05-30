@@ -4,6 +4,8 @@ import { AnalysisResult, CodeMetrics, SecurityIssue, PerformanceIssue, QualityIs
 import { Logger } from '../utils/logger';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+// ADD THIS IMPORT to fix the SecurityIssueType error:
+import { SecurityIssueType, PerformanceIssueType, QualityIssueType } from '../types/Analysis';
 
 export class WorkspaceAnalyzer {
   private projectContext: ProjectContext;
@@ -195,7 +197,7 @@ export class WorkspaceAnalyzer {
         totalClasses += metrics.classes;
         fileMetrics[filePath] = metrics;
       } catch (error) {
-        this.logger.debug(`Error analyzing metrics for ${filePath}:`, error);
+        this.logger.debug('Error message:', error as any);
       }
     }
 
@@ -231,7 +233,7 @@ export class WorkspaceAnalyzer {
         const fileIssues = await this.analyzeFileForSecurity(filePath, content);
         issues.push(...fileIssues);
       } catch (error) {
-        this.logger.debug(`Error analyzing security for ${filePath}:`, error);
+        this.logger.debug(`Error analyzing...`, error as any);
       }
     }
 
@@ -255,7 +257,7 @@ export class WorkspaceAnalyzer {
         const fileIssues = await this.analyzeFileForPerformance(filePath, content);
         issues.push(...fileIssues);
       } catch (error) {
-        this.logger.debug(`Error analyzing performance for ${filePath}:`, error);
+        this.logger.debug(`Error analyzing...`, error as any);
       }
     }
 
@@ -279,8 +281,8 @@ export class WorkspaceAnalyzer {
         const fileIssues = await this.analyzeFileForQuality(filePath, content);
         issues.push(...fileIssues);
       } catch (error) {
-        this.logger.debug(`Error analyzing quality for ${filePath}:`, error);
-      }
+        this.logger.debug(`Error analyzing...`, error as any
+      )}
     }
 
     return issues.sort((a, b) => this.getSeverityWeight(b.severity) - this.getSeverityWeight(a.severity));
@@ -353,7 +355,7 @@ export class WorkspaceAnalyzer {
         const fileDebt = await this.analyzeFileForTechnicalDebt(filePath, content);
         debt.push(...fileDebt);
       } catch (error) {
-        this.logger.debug(`Error analyzing technical debt for ${filePath}:`, error);
+        this.logger.debug(`Error analyzing...`, error as any);
       }
     }
 
@@ -400,15 +402,17 @@ export class WorkspaceAnalyzer {
     const issues: SecurityIssue[] = [];
     const lines = content.split('\n');
 
-    // Check for common security anti-patterns
-    const securityPatterns = [
-      { pattern: /eval\s*\(/g, type: 'code-injection', severity: 'high' as const, message: 'Use of eval() can lead to code injection' },
-      { pattern: /innerHTML\s*=/g, type: 'xss', severity: 'medium' as const, message: 'Direct innerHTML assignment may lead to XSS' },
-      { pattern: /document\.write/g, type: 'xss', severity: 'medium' as const, message: 'document.write can be exploited for XSS' },
-      { pattern: /password.*=.*['"]/gi, type: 'credential-exposure', severity: 'critical' as const, message: 'Hardcoded password detected' },
-      { pattern: /api[_-]?key.*=.*['"]/gi, type: 'credential-exposure', severity: 'critical' as const, message: 'Hardcoded API key detected' },
-      { pattern: /secret.*=.*['"]/gi, type: 'credential-exposure', severity: 'high' as const, message: 'Hardcoded secret detected' }
-    ];
+  // Check for common security anti-patterns
+  const securityPatterns = [
+  { pattern: /eval\s*\(/g, type: 'code-injection', severity: 'high', message: 'Use of eval() can lead to code injection' },
+  { pattern: /innerHTML\s*=/g, type: 'xss', severity: 'medium', message: 'Direct innerHTML assignment may lead to XSS' },
+  { pattern: /document\.write/g, type: 'xss', severity: 'medium', message: 'document.write can be exploited for XSS' },
+  { pattern: /password.*=.*['"]/gi, type: 'credential-exposure', severity: 'critical', message: 'Hardcoded password detected' },
+  { pattern: /api[_-]?key.*=.*['"]/gi, type: 'credential-exposure', severity: 'critical', message: 'Hardcoded API key detected' },
+  { pattern: /secret.*=.*['"]/gi, type: 'credential-exposure', severity: 'high', message: 'Hardcoded secret detected' }
+] as const;
+
+
 
     lines.forEach((line, index) => {
       securityPatterns.forEach(({ pattern, type, severity, message }) => {
@@ -751,7 +755,8 @@ export class WorkspaceAnalyzer {
         const fileIssues = await this.analyzeFileForSecurity(filePath, content);
         issues.push(...fileIssues);
       } catch (error) {
-        this.logger.debug(`Error analyzing security for ${filePath}:`, error);
+
+          this.logger.debug(`Error analyzing quality for ${filePath}:`, error as any);
       }
     }
     return issues;
@@ -765,7 +770,7 @@ export class WorkspaceAnalyzer {
         const fileIssues = await this.analyzeFileForQuality(filePath, content);
         issues.push(...fileIssues);
       } catch (error) {
-        this.logger.debug(`Error analyzing quality for ${filePath}:`, error);
+        this.logger.debug(`Error analyzing performance for ${filePath}:`, error as any);
       }
     }
     return issues;
