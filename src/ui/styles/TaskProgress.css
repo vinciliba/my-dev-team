@@ -1,0 +1,31 @@
+/* TaskProgress.css */
+.task-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-progress-item {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.task-progress-item:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.task-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.task-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex

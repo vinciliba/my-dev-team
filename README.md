@@ -1,71 +1,222 @@
-# my-dev-team README
+# AI Dev Team - VS Code Extension
 
-This is the README for your extension "my-dev-team". After writing up a brief description, we recommend including the following sections.
+🤖 **AI Dev Team** is an advanced VS Code extension that brings an entire AI-powered development team to your IDE. Work with specialized AI agents including Architect, Coder, Tester, Reviewer, and Documenter to accelerate your development workflow.
 
-## Features
+![AI Dev Team Banner](https://img.shields.io/badge/VS%20Code-Extension-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## 🌟 Features
 
-For example if there is an image subfolder under your extension project workspace:
+### 👥 AI Agent Team
+- **🏗️ Architect Agent**: System design, API planning, and database schema creation
+- **💻 Coder Agent**: Code generation, refactoring, and feature implementation
+- **🧪 Tester Agent**: Unit tests, integration tests, and test coverage analysis
+- **🔍 Reviewer Agent**: Code reviews, best practices enforcement, and security analysis
+- **📚 Documenter Agent**: API documentation, code comments, and user guides
 
-\!\[feature X\]\(images/feature-x.png\)
+### 🎯 Key Capabilities
+- **Team Collaboration Mode**: Agents work together on complex tasks
+- **Individual Agent Mode**: Direct interaction with specific agents
+- **Real-time Progress Tracking**: Monitor active tasks and agent status
+- **Intelligent Code Analysis**: Context-aware suggestions based on your project
+- **File System Watching**: Automatic detection of changes and updates
+- **Multi-language Support**: TypeScript, JavaScript, Python, Java, and more
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## 📋 Requirements
 
-## Requirements
+- VS Code version 1.74.0 or higher
+- Node.js 16.x or higher
+- [Ollama](https://ollama.ai/) installed and running locally
+- At least one Ollama model installed (e.g., `codellama`, `llama2`, `mistral`)
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## 🚀 Installation
 
-## Extension Settings
+### From VS Code Marketplace
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X)
+3. Search for "AI Dev Team"
+4. Click Install
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+### From Source
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/ai-dev-team.git
+cd ai-dev-team
 
-For example:
+# Install dependencies
+npm install
 
-This extension contributes the following settings:
+# Build the extension
+npm run compile
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+# Package the extension
+npm run package
+```
 
-## Known Issues
+## 🔧 Configuration
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+### Setting up Ollama
+1. Install Ollama from [ollama.ai](https://ollama.ai/)
+2. Pull a model:
+   ```bash
+   ollama pull codellama
+   ```
+3. Ensure Ollama is running:
+   ```bash
+   ollama serve
+   ```
 
-## Release Notes
+### Extension Settings
+Configure the extension in VS Code settings:
 
-Users appreciate release notes as you update your extension.
+```json
+{
+  "aiDevTeam.ollamaUrl": "http://localhost:11434",
+  "aiDevTeam.defaultModel": "codellama",
+  "aiDevTeam.maxConcurrentAgents": 3,
+  "aiDevTeam.enableFileWatcher": true,
+  "aiDevTeam.autoSaveGenerated": true
+}
+```
 
-### 1.0.0
+## 📖 Usage
 
-Initial release of ...
+### Opening the AI Dev Team Panel
+1. Press `Ctrl+Shift+P` to open command palette
+2. Type "AI Dev Team: Open Dashboard"
+3. Or click the AI Dev Team icon in the activity bar
 
-### 1.0.1
+### Creating a Task
+1. In the dashboard, describe your task in the input area
+2. Choose between Team Mode or Individual Agent
+3. Click "Start Task" or press `Ctrl+Enter`
 
-Fixed issue #.
+### Example Tasks
+```
+// Team Mode Example
+"Create a REST API for a todo application with authentication"
 
-### 1.1.0
+// Individual Agent Examples
+Architect: "Design a microservices architecture for an e-commerce platform"
+Coder: "Implement a binary search tree with insert and delete methods"
+Tester: "Generate unit tests for the UserService class"
+Reviewer: "Review the authentication module for security vulnerabilities"
+Documenter: "Create API documentation for the payment endpoints"
+```
 
-Added features X, Y, and Z.
+### Chat Interface
+- Switch between Individual Chat and Team Mode
+- Select specific agents for focused conversations
+- View typing indicators and real-time responses
+- Access chat history and export conversations
+
+## 🏗️ Architecture
+
+```
+my-dev-team/
+├── src/
+│   ├── agents/           # AI Agent implementations
+│   │   ├── BaseAgent.ts
+│   │   ├── ArchitectAgent.ts
+│   │   ├── CoderAgent.ts
+│   │   ├── TesterAgent.ts
+│   │   ├── ReviewerAgent.ts
+│   │   └── DocumenterAgent.ts
+│   ├── components/       # React UI components
+│   │   ├── AgentCard.tsx
+│   │   ├── ChatInterface.tsx
+│   │   ├── ProjectOverview.tsx
+│   │   └── TaskProgress.tsx
+│   ├── context/          # Project context and analysis
+│   │   ├── ProjectContext.ts
+│   │   ├── WorkspaceAnalyzer.ts
+│   │   └── FileSystemWatcher.ts
+│   ├── orchestrator/     # Task orchestration
+│   │   └── ProjectOrchestrator.ts
+│   ├── services/         # External services
+│   │   ├── OllamaService.ts
+│   │   └── FileService.ts
+│   ├── styles/           # Component styles
+│   ├── types/            # TypeScript definitions
+│   └── extension.ts      # Extension entry point
+```
+
+## 🛠️ Development
+
+### Building from Source
+```bash
+# Install dependencies
+npm install
+
+# Compile TypeScript
+npm run compile
+
+# Watch for changes
+npm run watch
+
+# Run tests
+npm test
+
+# Lint code
+npm run lint
+```
+
+### Debugging
+1. Open the project in VS Code
+2. Press `F5` to launch a new VS Code window with the extension
+3. Set breakpoints in the source code
+4. Check the Debug Console for logs
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Run specific test suite
+npm test -- --testNamePattern="AgentTests"
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Ollama](https://ollama.ai/) for providing local LLM capabilities
+- [VS Code Extension API](https://code.visualstudio.com/api) documentation
+- All contributors and testers
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/ai-dev-team/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ai-dev-team/discussions)
+- **Email**: support@aidevteam.dev
+
+## 🗺️ Roadmap
+
+- [ ] Support for more LLM providers (OpenAI, Anthropic, Google)
+- [ ] Enhanced team collaboration features
+- [ ] Visual workflow designer
+- [ ] Integration with popular CI/CD tools
+- [ ] Plugin system for custom agents
+- [ ] Multi-workspace support
+- [ ] Cloud sync for settings and history
 
 ---
 
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Made with ❤️ by the AI Dev Team Community
